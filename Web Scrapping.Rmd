@@ -1,0 +1,145 @@
+---
+title: "Web Scrapping in R"
+output: html_notebook
+---
+
+Extract 11 features of top 100 movies from the imdb website
+```{r}
+library(rvest)
+url <- 'http://www.imdb.com/search/title?count=100&release_date=2018,2018&title_type=feature'
+webpage <- read_html(url)
+print("IMDB analysis of movies")
+```
+Rank
+```{r}
+rank_data_html <- html_nodes(webpage,'.text-primary')
+rank_data <- html_text(rank_data_html)
+rank_data <- as.numeric(rank_data)
+```
+Title
+```{r echo=FALSE}
+cat("Titles of first few movies"," \n")
+title_data_html <- html_nodes(webpage,'.lister-item-header a')
+title_data <- html_text(title_data_html)
+head(title_data)
+```
+Description
+```{r results="hide"}
+cat("Reading the decsription of movies","\n")
+description_data_html <- html_nodes(webpage,'.ratings-bar+ .text-muted')
+description_data <- html_text(description_data_html)
+
+```
+Runtime
+```{r}
+cat("Reading the runtime of movies","\n")
+runtime_data_html <- html_nodes(webpage,'.text-muted .runtime')
+runtime_data <- html_text(runtime_data_html)
+runtime_data <- gsub(" min","",runtime_data)
+```
+Genre
+```{r}
+cat("Reading the genre of the movies","\n")
+genre_data_html <- html_nodes(webpage,'.genre')
+genre_data <- html_text(genre_data_html)
+genre_data <- gsub("\n","",genre_data)
+genre_data <- gsub(" ","",genre_data)
+genre_data <- gsub(",.*","",genre_data)
+genre_data <- as.factor(genre_data)
+
+```
+Rating & Votes
+```{r echo=FALSE}
+cat("Reading the rating and votes of movies","\n")
+rating_data_html <- html_nodes(webpage,'.ratings-imdb-rating strong')
+rating_data <- html_text(rating_data_html)
+rating_data <- as.numeric(rating_data)
+
+votes_data_html <- html_nodes(webpage,'.sort-num_votes-visible span:nth-child(2)')
+votes_data <- html_text(votes_data_html)
+votes_data <- gsub(",","",votes_data)
+votes_data <- as.numeric(votes_data)
+votes_data <- votes_data/1000
+```
+Director & Actors
+```{r}
+cat("Reading the directors and actors of the movies","\n")
+directors_data_html <- html_nodes(webpage,'.text-muted+ p a:nth-child(1)')
+directors_data <- html_text(directors_data_html)
+head(directors_data)
+directors_data <- as.factor(directors_data)
+
+actors_data_html <- html_nodes(webpage,'.lister-item-content .ghost+ a')
+actors_data <- html_text(actors_data_html)
+head(actors_data)
+actors_data <- as.factor(actors_data)
+```
+Metascore
+```{r message=FALSE,warning=FALSE}
+cat("Reading the meta score of movies","\n")
+metascore_data_html <- html_nodes(webpage,'.metascore')
+metascore_data <- html_text(metascore_data_html)
+metascore_data <- gsub(" ","",metascore_data)
+length(metascore_data)
+
+for(i in c(52,65,67,88)){
+  a <- metascore_data[1:(i-1)]
+  b <- metascore_data[i:length(metascore_data)]
+  metascore_data <- append(a,list("NA"))
+  metascore_data <- append(metascore_data,b)
+}
+metascore_data <- metascore_data[1:100]
+metascore_data <- as.numeric(metascore_data)
+length(metascore_data)
+summary(metascore_data)
+```
+Gross Earning
+```{r echo=FALSE,warning=FALSE}
+cat("Reading the gross earning of movies","\n")
+gross_data_html <- html_nodes(webpage,'.ghost~ .text-muted+ span')
+gross_data <- html_text(gross_data_html)
+gross_data <- gsub("M","",gross_data)
+gross_data <- substring(gross_data,2,6)
+length(gross_data)
+
+for(i in c(3,8,29,38,41,52,57,61,65,66,67,68,72,85,88,97)){
+  a <- gross_data[1:(i-1)]
+  b <- gross_data[i:length(gross_data)]
+  gross_data <- append(a,list("NA"))
+  gross_data <- append(gross_data,b)
+}
+
+gross_data <- gross_data[1:100]
+gross_data <- as.numeric(gross_data)
+length(gross_data)
+summary(gross_data)
+```
+Combining the 11 features into a data frame
+```{r}
+
+movies_df <- data.frame(Rank = rank_data,Title = title_data,
+                        Description = description_data,Runtime = runtime_data,
+                        Genre = genre_data ,Rating = rating_data,
+                        Metascore = metascore_data,Votes = votes_data,
+                        Gross_Earning = gross_data,Director = directors_data,
+                        Actor = actors_data)
+str(movies_df)
+```
+Visualizations
+```{r warning=FALSE,echo=FALSE}
+
+library(ggplot2)
+qplot(data = movies_df,Runtime,fill = Genre,bins = 30)
+ggplot(movies_df,aes(Runtime,Rating)) + geom_point(aes(size = Votes,col = Genre))
+ggplot(movies_df,aes(Runtime,Gross_Earning)) + geom_point(aes(size = Rating,col = Genre))
+
+ggplot(movies_df,aes(Genre)) + geom_bar(aes(fill = Genre))
+ggplot(movies_df) + geom_col(aes(Genre,y = Rank,col = Genre))
+ggplot(movies_df) + geom_col(aes(Genre,y = Rating,col = Genre))
+ggplot(movies_df) + geom_col(aes(Genre,y = Gross_Earning,col = Genre))
+ggplot(movies_df) + geom_col(aes(Genre,y = Votes,col = Genre)) + ylab("Votes in thousands")
+ggplot(movies_df) + geom_col(aes(Genre,y = Metascore,col = Genre))
+
+```
+
+
